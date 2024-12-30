@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>User Profile | Any-Chat</title>
+    <link href="/webjars/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <script src="/webjars/jquery/jquery.min.js"></script>
+    <script src="/webjars/sockjs-client/sockjs.min.js"></script>
+    <script src="/webjars/stomp-websocket/stomp.min.js"></script>
+    <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no" />
+    <style>
+
+        .f-image {
+            width: 40px; /* 设置头像大小 */
+            height: 40px;
+        }
+        .form-inline .form-control {
+            margin-right: 5px;
+        }
+        .delete-friend-btn {
+            vertical-align: middle;
+        }
+        .profile-section {
+            display: none;
+        }
+        .active-profile-section {
+            display: block;
+        }
+        .centered-content {
+            text-align: center;
+            margin: 0 auto;
+            max-width: 400px;
+        }
+        .left-aligned-content {
+            float: left;
+            width: 50%;
+        }
+        .right-aligned-content {
+            float: right;
+            width: 50%;
+        }
+        .form-group label {
+            font-size: 18px;
+        }
+        .form-group input {
+            font-size: 16px;
+            width: 80%;
+            margin: 0 auto;
+            display: block;
+        }
+        .btn {
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body style="background-color: #f1f1f1; padding-bottom: 0">
+<div th:insert="~{header :: nav}"></div>
+<div class="container-fluid" style="margin-top: 60px">
+    <div class="row">
+        <!-- Sidebar -->
+        <nav class="col-md-2 d-none d-md-block bg-light sidebar">
+            <div class="sidebar-sticky">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link active profile-tab" href="#">
+                            <span data-feather="file"></span>
+                            个人资料 <span class="sr-only">(current)</span>
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link user-management-tab" href="#">
+                            <span data-feather="users"></span>
+                            好友管理
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main role="main" class="col-md-9 ml-sm-auto col-lg-10 px-md-4">
+            <!-- Profile Section -->
+            <div id="profileSection" class="profile-section active-profile-section centered-content">
+                <h2>个人资料</h2>
+                <form id="profileForm">
+                    <div class="form-group">
+                        <label for="username">用户名</label>
+                        <input type="text" class="form-control" id="username" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">密码</label>
+                        <input type="password" class="form-control" id="password">
+                    </div>
+                    <div class="form-group">
+                        <label for="nickname">昵称</label>
+                        <input type="text" class="form-control" id="nickname">
+                    </div>
+                    <button type="submit" class="btn btn-primary">保存更改</button>
+                </form>
+            </div>
+
+            <!-- User Management Section -->
+            <div id="userManagementSection" class="profile-section">
+                <div class="left-aligned-content">
+                    <h2>好友列表</h2>
+                    <div class="form-group">
+                        <div class="row center-block">
+                            <div style="margin: 0 10px; width: 350px; display: inline-block">
+                                <div class="panel panel-danger">
+                                    <div class="panel-body" style="height: 390px; overflow-y: scroll; overflow: auto" id="friendsList">
+                                        <button class="friend" th:each="friend : ${friends}">
+                                            <div class="media-left">
+                                                <a href="#">
+                                                    <img class="media-object f-image img-circle" th:src="${friend.avatar}" alt="">
+                                                </a>
+                                            </div>
+                                            <div class="media-body" style="text-align: left">
+                                                <h4 class="media-heading f-nickname" th:text="${friend.nickname}"></h4>
+                                                <p class="text-danger f-signature" th:text="${friend != null and friend.online} ? 'Online' : 'Offline'"></p>
+                                                <p class="hidden f-username" th:text="${friend.username}">anoy</p>
+                                            </div>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <form class="form-inline">
+                            <input type="text" class="form-control" id="deleteFriend" placeholder="输入好友用户名">
+                            <button class="btn btn-danger delete-friend-btn">删除</button>
+                        </form>
+                    </div>
+                </div>
+                <div class="right-aligned-content">
+                    <h2>好友请求</h2>
+                    <div id="friendRequests"></div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+</div>
+
+<script>
+    var stompClient = null;
+
+    function connect() {
+        var socket = new SockJS('/any-socket');
+        stompClient = Stomp.over(socket);
+        stompClient.connect({}, function (frame) {
+            console.log('Connected: ' + frame);
+            stompClient.subscribe('/user/topic/friendRequest', function (message) {
+                showFriendRequest(JSON.parse(message.body));
+            });
+        });
+    }
+
+    function showFriendRequest(request) {
+        $("#friendRequests").append(
+            "<div class='request-div'>"+
+            "<p>" + request.fromNickname + " 请求添加您为好友</p>"+
+            "<button class='btn btn-success accept-btn' data-from='" + request.fromUsername + "'>接受</button>"+
+            "<button class='btn btn-danger decline-btn' data-from='" + request.fromUsername + "'>拒绝</button>"+
+            "</div>"
+        );
+    }
+
+    function loadPendingFriendRequests() {
+        $.get("/api/common/getPendingFriendRequests", function(data) {
+            data.forEach(function(request) {
+                showFriendRequest(request);
+            });
+        });
+    }
+
+    $(function () {
+        connect();
+        loadPendingFriendRequests();
+
+        // Tab navigation
+        $(".profile-tab").click(function(e) {
+            e.preventDefault();
+            $(".profile-section").removeClass("active-profile-section");
+            $("#profileSection").addClass("active-profile-section");
+        });
+
+        $(".user-management-tab").click(function(e) {
+            e.preventDefault();
+            $(".profile-section").removeClass("active-profile-section");
+            $("#userManagementSection").addClass("active-profile-section");
+        });
+
+
+        // Accept and Decline friend requests
+        $(document).on('click', '.accept-btn', function() {
+            var fromUsername = $(this).data('from');
+            $.post("/api/common/confirm",
+                {"from": fromUsername},
+                function(data){
+                    if(data.success){
+                        alert("已接受好友请求！");
+                        location.reload();
+                    }else{
+                        alert("操作失败：" + data.message);
+                    }
+                },
+                'json'
+            );
+        });
+
+        $(document).on('click', '.decline-btn', function() {
+            var fromUsername = $(this).data('from');
+            $.post("/api/common/decline",
+                {"from": fromUsername},
+                function(data){
+                    if(data.success){
+                        alert("已拒绝好友请求！");
+                        location.reload();
+                    }else{
+                        alert("操作失败：" + data.message);
+                    }
+                },
+                'json'
+            );
+        });
+
+        // Delete friend
+        $(document).on('click', '.delete-friend-btn', function() {
+            var friendUsername = $("#deleteFriend").val();
+            if (!friendUsername) {
+                alert("请输入好友用户名");
+                return;
+            }
+            $.post("/api/common/deleteFriend",
+                {"friendUsername": friendUsername},
+                function(response){
+                    if(response.status === 200){
+                        alert(response.responseText);
+                    }else{
+                        alert(response.responseText);
+                    }
+                },
+                'json'
+            ).fail(function(jqXHR, textStatus, errorThrown) {
+                alert(jqXHR.responseText);
+            });
+        });
+
+
+        // Load user profile
+        $.get("/api/common/getUserProfile", function(data) {
+            $("#username").val(data.username);
+            $("#password").val(data.password); // Note: In a real application, do not send passwords in plaintext.
+            $("#nickname").val(data.nickname);
+        }, 'json').fail(function(jqXHR, textStatus, errorThrown) {
+            alert("加载用户信息失败：" + jqXHR.responseText);
+        });
+
+        // Save profile changes
+        $("#profileForm").submit(function(e) {
+            e.preventDefault();
+            var newPassword = $("#password").val();
+            var newNickname = $("#nickname").val();
+            $.post("/api/common/updateProfile",
+                {
+                    "newPassword": newPassword,
+                    "newNickname": newNickname
+                },
+                function(response){
+                    if(response.status === 200){
+                        alert(response.responseText);
+                    }else{
+                        alert(response.responseText);
+                    }
+                },
+                'json'
+            ).fail(function(jqXHR, textStatus, errorThrown) {
+                alert(jqXHR.responseText);
+            });
+        });
+    });
+</script>
+</body>
+</html>

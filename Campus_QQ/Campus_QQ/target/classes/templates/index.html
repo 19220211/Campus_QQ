@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Any-Chat | Spring Boot | WebSocket</title>
+    <link href="/webjars/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+    <script src="/webjars/jquery/jquery.min.js"></script>
+
+    <style>
+        body {
+            background-color: #ADD8E6; /* 淡蓝色 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        .container {
+            text-align: center;
+        }
+
+        .logo {
+            width: 200px; /* 调整图片大小 */
+            height: auto;
+        }
+
+        .title {
+            font-size: 3em; /* 调整字体大小 */
+            color: white;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.5); /* 初始发光效果 */
+            animation: glowAnimation 6s infinite;
+        }
+
+        @keyframes glowAnimation {
+            0% { text-shadow: 0 0 5px red; }
+            16.67% { text-shadow: 0 0 5px orange; }
+            33.33% { text-shadow: 0 0 5px yellow; }
+            50% { text-shadow: 0 0 5px green; }
+            66.67% { text-shadow: 0 0 5px cyan; }
+            83.33% { text-shadow: 0 0 5px blue; }
+            100% { text-shadow: 0 0 5px violet; }
+        }
+    </style>
+
+</head>
+
+<body>
+<div th:insert="~{header :: nav}"></div>
+<div class="container">
+    <img src="/image/qq.svg" alt="QQ Logo" class="logo">
+
+    <h1 class="title">校园版QQ程序</h1>
+</div>
+</body>
+
+</html>
+
+
+
